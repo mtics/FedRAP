@@ -217,16 +217,3 @@ if __name__ == '__main__':
                                                                      test_ndcgs[final_test_round], final_test_round)
 
     logging.info(notice)
-
-    # Use WeChat to notice
-    if config['on_server']:
-        resp = requests.post("https://www.autodl.com/api/v1/wechat/message/push",
-                             json={
-                                 "token": str("e91a9b7f2c1c"),
-                                 "title": str("NOTICE FROM EXPeriment"),
-                                 "name": str("[{}] {}-{}: {}-{}".format(config['alias'], config['dataset'],
-                                                                        config['data_file'].split('.')[0],
-                                                                        config['type'], config['comment'])),
-                                 "content": str(notice)
-                             })
-        print(resp.content.decode())
