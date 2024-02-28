@@ -91,7 +91,6 @@ class SampleGenerator(object):
             columns={'itemId': 'interacted_items'})
         interact_status['negative_items'] = interact_status['interacted_items'].apply(lambda x: self.item_pool - x)
         interact_status['negative_samples'] = interact_status['negative_items'].apply(lambda x: random.sample(x, 99))
-        # interact_status['negative_samples'] = interact_status['negative_items']
         return interact_status[['userId', 'negative_items', 'negative_samples']]
 
     def store_all_train_data(self, num_negatives):
@@ -158,10 +157,10 @@ class SampleGenerator(object):
             val_items.append(int(row.itemId))
             for i in range(len(row.negative_samples)):
                 negative_users.append(int(row.userId))
-                negative_items.append(int(list(row.negative_samples)[i]))
+                negative_items.append(int(row.negative_samples[i]))
         assert len(val_users) == len(val_items)
         assert len(negative_users) == len(negative_items)
-        # assert 99 * len(val_users) == len(negative_users)
+        assert 99 * len(val_users) == len(negative_users)
         assert val_users == sorted(val_users)
         return [torch.LongTensor(val_users), torch.LongTensor(val_items), torch.LongTensor(negative_users),
                 torch.LongTensor(negative_items)]
@@ -177,10 +176,10 @@ class SampleGenerator(object):
             test_items.append(int(row.itemId))
             for i in range(len(row.negative_samples)):
                 negative_users.append(int(row.userId))
-                negative_items.append(int(list(row.negative_samples)[i]))
+                negative_items.append(int(row.negative_samples[i]))
         assert len(test_users) == len(test_items)
         assert len(negative_users) == len(negative_items)
-        # assert 99 * len(test_users) == len(negative_users)
+        assert 99 * len(test_users) == len(negative_users)
         assert test_users == sorted(test_users)
         return [torch.LongTensor(test_users), torch.LongTensor(test_items), torch.LongTensor(negative_users),
                 torch.LongTensor(negative_items)]

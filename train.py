@@ -9,16 +9,16 @@ import requests
 import torch
 
 from utils.data import SampleGenerator
-from utils.utils import setSeed, initLogging, loadData, get_inter_matrix
+from utils.utils import setSeed, initLogging, loadData
 
 
-def loadEngine(configuration, df=None):
+def loadEngine(configuration):
     # Load engine according to the alias
     if configuration['alias'] == 'FedRAP':
         from model.model import FedRAPEngine
 
         load_engine = FedRAPEngine(configuration)
-    
+
     return load_engine
 
 
@@ -26,21 +26,20 @@ if __name__ == '__main__':
     # Training settings
     parser = argparse.ArgumentParser()
     parser.add_argument('--alias', type=str, default='FedRAP')
-    parser.add_argument('--dataset', type=str, default='kgrec')
-    parser.add_argument('--data_file', type=str, default='music.csv')
+    parser.add_argument('--dataset', type=str, default='movielens')
+    parser.add_argument('--data_file', type=str, default='ml-100k.dat')
     parser.add_argument('--model_dir', type=str, default='results/checkpoints/{}/{}/[{}]Epoch{}.model')
     parser.add_argument('--clients_sample_ratio', type=float, default=1.0)
-    parser.add_argument('--top_k', type=int, default=20)
+    parser.add_argument('--top_k', type=int, default=10)
     parser.add_argument('--decay_rate', type=float, default=0.97)
     parser.add_argument('--num_round', type=int, default=100)
     parser.add_argument('--local_epoch', type=int, default=10)
     parser.add_argument('--tol', type=float, default=1e-4)
     parser.add_argument('--batch_size', type=int, default=2048)
-    parser.add_argument('--lr_network', type=float, default=1e-1)
-    parser.add_argument('--lr_args', type=float, default=1e2)
+    parser.add_argument('--lr_network', type=float, default=5e-1)
+    parser.add_argument('--lr_args', type=float, default=2e2)
     parser.add_argument('--latent_dim', type=int, default=32)
-    parser.add_argument('--num_layers', type=int, default=2)
-    parser.add_argument('--l2_regularization', type=float, default=0.)
+    parser.add_argument('--l2_regularization', type=float, default=1e-4)
     parser.add_argument('--num_negative', type=int, default=4)
     parser.add_argument('--lambda', type=float, default=0.1)
     parser.add_argument('--mu', type=float, default=0.1)
@@ -52,59 +51,44 @@ if __name__ == '__main__':
     parser.add_argument('--comment', type=str, default='default')
     parser.add_argument('--on_server', type=bool, default=False)
     parser.add_argument('--vary_param', type=str, default='tanh')
-    parser.add_argument('--num', type=int, default='100')
-    parser.add_argument('--start', type=int, default='0')
-    parser.add_argument('--what', type=str, default='None')
 
     args = parser.parse_args()
 
     # Config
     config = vars(args)
 
-    # Set cuda
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(config['device_id'])
-
-    torch.cuda.set_device(0)
+    torch.cuda.set_device(config['device_id'])
 
     # Set random seed
     setSeed(config['seed'])
+
+    # Set cuda
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
     # Logging.
     path = 'logs/'
     current_time = datetime.datetime.now().strftime('%Y-%m-%d %H-%M-%S')
     log_file_name = os.path.join(path,
-                                 '[{}]-[{}.{}]-[{}.{}]-[{}].txt'.format(config['alias'], config['dataset'],
-                                                                        config['data_file'].split('.')[0],
-                                                                        config['type'], config['comment'],
-                                                                        current_time))
+                                 '[{}]-[{}.{}]-[{}].txt'.format(config['alias'], config['dataset'],
+                                                                config['data_file'].split('.')[0], current_time))
     initLogging(log_file_name)
 
     # Load Data
-    ratings, config['num_users'], config['num_items'] = loadData('../datasets', config['dataset'], config,
-                                                                 config['data_file'])
+    ratings, config['num_users'], config['num_items'] = loadData('../datasets', config['dataset'], config['data_file'])
 
     # create folder to save checkpoints
     checkpoint_path = 'results/checkpoints/{}/{}/'.format(config['alias'], config['dataset'])
     if not os.path.exists(checkpoint_path):
         os.makedirs(checkpoint_path)
 
-    # DataLoader for training
-    sample_generator = SampleGenerator(ratings=ratings)
-
-    if config['alias'] not in ['NCF', 'MF', 'lightGCN']:
-        train_data = sample_generator.store_all_train_data(config['num_negative'])
-    else:
-        train_data = sample_generator.instance_a_train_loader(config['num_negative'], config['batch_size'])
-        if config['alias'] == 'lightGCN':
-            config['inter_matrix'] = get_inter_matrix(ratings, config)
-
-    validate_data = sample_generator.validate_data
-    test_data = sample_generator.test_data
-
-    # Load engine
-    engine = loadEngine(config, ratings)
+    engine = loadEngine(config)
 
     logging.info(str(config))
+
+    # DataLoader for training
+    sample_generator = SampleGenerator(ratings=ratings)
+    validate_data = sample_generator.validate_data
+    test_data = sample_generator.test_data
 
     # Initialize for training
     test_hrs, test_ndcgs, val_hrs, val_ndcgs, train_losses = [], [], [], [], []
@@ -120,6 +104,11 @@ if __name__ == '__main__':
     for iteration in range(config['num_round']):
 
         logging.info('--------------- Round {} starts ! ---------------'.format(iteration + 1))
+
+        if config['alias'] != 'NCF':
+            train_data = sample_generator.store_all_train_data(config['num_negative'])
+        else:
+            train_data = sample_generator.instance_a_train_loader(config['num_negative'], config['batch_size'])
 
         # 1. Train Phase
         start_time = time.perf_counter()

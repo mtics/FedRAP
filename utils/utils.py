@@ -4,7 +4,6 @@
 import logging
 
 import numpy as np
-import scipy.sparse as sp
 import torch
 
 
@@ -87,7 +86,7 @@ def datasetFilter(ratings, min_items=5):
     return filter_ratings
 
 
-def loadData(path, dataset, config, file_name='ratings.dat'):
+def loadData(path, dataset, file_name='ratings.dat'):
     import os
     import pandas as pd
 
@@ -99,12 +98,8 @@ def loadData(path, dataset, config, file_name='ratings.dat'):
         ratings = pd.read_csv(dataset_file, sep=',', header=None, names=['uid', 'mid', 'rating', 'timestamp'],
                               engine='python')
     elif dataset == "amazon":
-        if "product_reviews" not in file_name:
-            ratings = pd.read_csv(dataset_file, sep=",", header=None, names=['uid', 'mid', 'rating', 'timestamp'],
-                                  engine='python')
-        else:
-            ratings = pd.read_csv(dataset_file, sep=",", header=None, usecols=[0, 1, 17],
-                                  names=['uid', 'mid', 'rating'], engine='python')
+        ratings = pd.read_csv(dataset_file, sep=",", header=None, names=['uid', 'mid', 'rating', 'timestamp'],
+                              engine='python')
 
     elif dataset == "books":
 
@@ -129,18 +124,6 @@ def loadData(path, dataset, config, file_name='ratings.dat'):
         rank['timestamp'] = np.arange((len(rank)))
         ratings = pd.merge(ratings, rank, on=['mid'], how='left')
 
-    elif dataset == "tmall":
-        ratings = pd.read_csv(dataset_file, sep=",", header=None, usecols=[0, 2, 4, 5],
-                              names=['uid', 'mid', 'rating', 'timestamp'], engine='python')
-
-    elif dataset == "kgrec":
-        ratings = pd.read_csv(dataset_file, sep=",", header=None, names=['uid', 'mid', 'rating'],
-                              engine='python')
-
-        # take the item orders instead of real timestamp
-        rank = ratings[['mid']].drop_duplicates().reindex()
-        rank['timestamp'] = np.arange((len(rank)))
-        ratings = pd.merge(ratings, rank, on=['mid'], how='left')
 
     elif dataset == "user-behavior":
         chunks = pd.read_csv(dataset_file, sep=",", header=None, names=['uid', 'mid', 'cid', 'behavior', 'timestamp'],
@@ -177,14 +160,6 @@ def loadData(path, dataset, config, file_name='ratings.dat'):
     else:
         ratings = pd.DataFrame()
 
-    # for synthetic analysis
-    # you need to pre-process data
-    # ratings = top_N_items(ratings, 1000)
-    if config['what'] == 'user':
-        ratings = top_N_users(ratings, config['num'], config['start'])
-    elif config['what'] == 'item':
-        ratings = top_N_items(ratings, config['num'], config['start'])
-
     ratings = datasetFilter(ratings, min_rates)
 
     # Reindex user id and item id
@@ -203,26 +178,6 @@ def loadData(path, dataset, config, file_name='ratings.dat'):
     return ratings, num_users, num_items
 
 
-def top_N_items(rating, n, start_idx=0):
-    rated_num = rating.groupby(['mid'])['uid'].count()
-
-    sorted_idx = rated_num.sort_values(ascending=False).index.tolist()
-
-    first_n_item = sorted_idx[start_idx:start_idx + n]
-
-    return rating.loc[rating['mid'].isin(first_n_item)]
-
-
-def top_N_users(rating, n, start_idx=0):
-    rated_num = rating.groupby(['uid'])['mid'].count()
-
-    sorted_idx = rated_num.sort_values(ascending=False).index.tolist()
-
-    first_n_item = sorted_idx[start_idx:start_idx + n]
-
-    return rating.loc[rating['uid'].isin(first_n_item)]
-
-
 def print_statistics(ratings):
     """print the statistics of the dataset, and return the number of users and items"""
     maxs = ratings.max()
@@ -233,23 +188,3 @@ def print_statistics(ratings):
     logging.info('There are total {} interactions, the sparsity is {:.2f}%.'.format(num_interactions, sparsity * 100))
 
     return int(maxs['userId'] + 1), int(maxs['itemId'] + 1)
-
-
-def get_inter_matrix(df, args, form='coo'):
-    '''
-    get the whole sparse interaction matrix
-    '''
-    print("get the whole sparse interaction matrix")
-    user_num, item_num = args['num_users'], args['num_items']
-
-    src, tar = df['userId'].values, df['itemId'].values
-    data = df['rating'].values
-
-    mat = sp.coo_matrix((data, (src, tar)), shape=(user_num, item_num))
-
-    if form == 'coo':
-        return mat
-    elif form == 'csr':
-        return mat.tocsr()
-    else:
-        raise NotImplementedError(f'Sparse matrix format [{form}] has not been implemented...')

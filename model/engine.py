@@ -22,7 +22,7 @@ class Engine(object):
         self.server_model_param = {}
         self.client_model_params = {}
         self.sparsity = None
-        self._metron = MetronAtK(top_k=config['top_k'])
+        self._metron = MetronAtK(top_k=self.config['top_k'])
 
         if config['vary_param'] == 'fixed':
             self.lam = config['lambda']
@@ -57,12 +57,6 @@ class Engine(object):
         ratings_pred, item_personality, item_commonality = model_client(items)
         loss = model_loss(ratings_pred.view(-1), ratings, item_personality, item_commonality)
         loss.backward()
-
-        # # Clip C's gradient
-        # clip_gradient = model_client.item_commonality.weight.grad.detach().clone()
-        # torch.nn.utils.clip_grad_norm(clip_gradient, max_norm=0.1)
-        # model_client.item_commonality.weight.grad = clip_gradient.cuda()
-
         optimizer.step()
         scheduler.step()
 
@@ -132,8 +126,6 @@ class Engine(object):
 
                 client_model.load_state_dict(client_param_dict)
 
-            client_model.item_commonality.grad_sample = True
-
             # Defining optimizers
             # optimizer is responsible for updating score function.
             optimizer = torch.optim.SGD([
@@ -148,15 +140,6 @@ class Engine(object):
             # load current user's training data and instance a train loader.
             user_train_data = [train_data[0][user], train_data[1][user], train_data[2][user]]
             user_dataloader = self.instanceUserTrainLoader(user_train_data)
-
-            # privacy_engine = PrivacyEngine()
-            # client_model, optimizer, user_dataloader = privacy_engine.make_private(
-            #     module=client_model,
-            #     optimizer=optimizer,
-            #     data_loader=user_dataloader,
-            #     noise_multiplier=1,
-            #     max_grad_norm=0.1,
-            # )
 
             client_model.train()
             sample_num = 0
@@ -182,43 +165,20 @@ class Engine(object):
             # obtain client model parameters,
             # and store client models' local parameters for personalization.
             self.client_model_params[user] = copy.deepcopy(client_model.state_dict())
-            keys = list(self.client_model_params[user].keys())
-            for key in keys:
-                self.client_model_params[user][key.strip('_module.')] = self.client_model_params[user].pop(key)
-
             if self.config['use_cuda']:
                 for key in self.client_model_params[user].keys():
                     self.client_model_params[user][key] = self.client_model_params[user][key].cpu()
-
-            # the codes in the following 5 lines are used to save item_personality
-            if iteration == 20:
-                torch.save(self.client_model_params[user]['item_personality.weight'],
-                           self.config['model_dir'].format(self.config['alias'], self.config['dataset'],
-                                                           self.config['comment'] + '_personality',
-                                                           str(iteration) + '-' + str(user)))
 
             # store client models' local parameters for global update.
             participant_params[user] = copy.deepcopy(self.client_model_params[user])
 
             # delete all user-related data
-            # del participant_params[user]['affine_output.weight']
-            # del participant_params[user]['affine_output.bias']
-            # del participant_params[user]['item_personality.weight']
-
-            # add noise to perform differential privacy
-            # participant_params[user]['item_commonality.weight'].data += (math.sqrt(0.01)) * torch.randn(
-            #     participant_params[user]['item_commonality.weight'].data.shape)
+            del participant_params[user]['affine_output.weight']
+            del participant_params[user]['affine_output.bias']
+            del participant_params[user]['item_personality.weight']
 
         # aggregate client models in server side.
         data, sparsity = self.aggregateParamsFromClients(participant_params)
-
-        # the codes in the following 5 lines are used to save item_commonality.weight
-        if iteration == 20:
-            torch.save(data,
-                       self.config['model_dir'].format(self.config['alias'],
-                                                       self.config['dataset'],
-                                                       self.config['comment'] + '_commonality',
-                                                       iteration))
 
         # update global learning rates
         self.config['lr_network'] = self.config['lr_network'] * self.config['decay_rate']
@@ -257,10 +217,7 @@ class Engine(object):
         # store all users' negative items prediction scores.
         negative_scores = None
 
-        for idx in range(len(test_users)):
-
-            user = test_users[idx]
-
+        for user in range(self.config['num_users']):
             # load each user's mlp parameters.
             user_model = copy.deepcopy(self.model)
 
@@ -280,10 +237,8 @@ class Engine(object):
 
             # obtain user's positive test information.
             test_item = test_items[user: user + 1]
-
             # obtain user's negative test information.
-            negative_item = negative_items[negative_users.eq(user)]
-
+            negative_item = negative_items[user * 99: (user + 1) * 99]
             # perform model prediction.
             test_score, _, _ = user_model(test_item)
             negative_score, _, _ = user_model(negative_item)

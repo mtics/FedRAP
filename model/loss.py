@@ -37,7 +37,7 @@ class Loss(torch.nn.Module):
             third = self.reg(item_commonality, dummy_target)
 
         loss = self.crit(predictions, truth) \
+               - self.config['lambda'] * self.independency(item_personality, item_commonality) \
                + self.config['mu'] * third
-               # - self.config['lambda'] * self.independency(item_personality, item_commonality) \
 
         return loss
