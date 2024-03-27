@@ -2,6 +2,7 @@
 
 > This project is the code and the supplementary of "**Federated Recommendation with Additive Personalization**"
 
+> Notice that <u>FedRAP is highly sensitive to the <font color='red'>**Parameter Combinations**</font>, which may result in significant differences in performance!</u>
 
 
 ## Requirements
