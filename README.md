@@ -28,7 +28,7 @@
 
 ## Citation
 
-If you find this paper useful, please cite it:
+If you find this paper useful in your research, please consider citing:
 
 ```
 @inproceedings{
