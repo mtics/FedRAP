@@ -44,4 +44,4 @@ If you find this paper useful in your research, please consider citing:
 ## Contact
 
 - This project is free for academic usage. You can run it at your own risk.
-- For any other purposes, please contact Mr. Zhiwei Li ([lizhw.cs@outlook.com](mailto:lizhw.cs@outlook.com))
+- For any other purposes, please contact Mr. Zhiwei Li ([![Static Badge](https://img.shields.io/badge/Email-lizhw.cs%40outlook.com-red?style=plastic&logo=mail&labelColor=%23FCFAF2&color=grey)](mailto:lizhw.cs@outlook.com))
