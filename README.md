@@ -4,7 +4,10 @@
 
 > This project is the code and the supplementary of "**Federated Recommendation with Additive Personalization**"
 
-> Notice that <u>FedRAP is highly sensitive to the <font color='red'>**Parameter Combinations**</font>, which may result in significant differences in performance!</u>
+**Precautions Before Use:** 
+FedRAP is <mark>*highly sensitive to its hyperparameter combinations*</mark>. 
+Even slight deviations from the settings reported in the original paper can lead to substantial performance divergences. 
+As such, practitioners should <mark>perform a fine-grained, dataset-specific hyperparameter search</mark> to reproduce the reported results and achieve optimal performance on their own benchmarks.
 
 
 ![Poster of FedRAP @ ICLR 2024](https://iclr.cc/media/PosterPDFs/ICLR%202024/17446.png)
